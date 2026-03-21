@@ -126,7 +126,39 @@ export function listOpenclawSkills(): { skills: SkillInfo[]; agents: Record<stri
   }
 
   const customSkills = scanSkillsDir(path.join(OPENCLAW_HOME, "skills"), "custom");
-  const allSkills = [...builtinSkills, ...extSkills, ...customSkills];
+
+  // Scan agent workspace skills directories
+  const agentWorkspaceSkills: SkillInfo[] = [];
+  const seenSkillIds = new Set(
+    [...builtinSkills, ...extSkills, ...customSkills].map((s) => s.id)
+  );
+  let config: any = null;
+  try { config = JSON.parse(fs.readFileSync(OPENCLAW_CONFIG_PATH, "utf-8")); } catch { /* config unavailable */ }
+  if (config) {
+    const agentList = config.agents?.list || [];
+    const scannedDirs = new Set<string>();
+    for (const agent of agentList) {
+      for (const dir of [agent.workspace, agent.agentDir].filter(Boolean)) {
+        try {
+          const skillsDir = path.join(dir, "skills");
+          if (!fs.existsSync(skillsDir)) continue;
+          const resolved = fs.realpathSync(skillsDir);
+          if (scannedDirs.has(resolved)) continue;
+          scannedDirs.add(resolved);
+          for (const skill of scanSkillsDir(skillsDir, `agent:${agent.id}`)) {
+            if (!seenSkillIds.has(skill.id)) {
+              seenSkillIds.add(skill.id);
+              agentWorkspaceSkills.push(skill);
+            }
+          }
+        } catch (e) {
+          console.warn(`[skills] Failed to scan ${dir}/skills:`, (e as Error).message);
+        }
+      }
+    }
+  }
+
+  const allSkills = [...builtinSkills, ...extSkills, ...customSkills, ...agentWorkspaceSkills];
 
   const agentSkills = getAgentSkillsFromSessions();
   for (const skill of allSkills) {
@@ -137,10 +169,9 @@ export function listOpenclawSkills(): { skills: SkillInfo[]; agents: Record<stri
     }
   }
 
-  const config = JSON.parse(fs.readFileSync(OPENCLAW_CONFIG_PATH, "utf-8"));
-  const agentList = config.agents?.list || [];
+  const agentListForInfo = (config || {}).agents?.list || [];
   const agents: Record<string, SkillAgentInfo> = {};
-  for (const agent of agentList) {
+  for (const agent of agentListForInfo) {
     agents[agent.id] = {
       name: agent.identity?.name || agent.name || agent.id,
       emoji: agent.identity?.emoji || "🤖",
