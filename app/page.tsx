@@ -238,7 +238,7 @@ export default function Home() {
   const [agentStates, setAgentStates] = useState<Record<string, string>>(cachedHomeAgentStates);
   const [agentActivity, setAgentActivity] = useState<AgentActivityData[] | null>(null);
 
-  const RANGE_LABELS: Record<TimeRange, string> = { daily: t("range.daily"), weekly: t("range.weekly"), monthly: t("range.monthly"), total: "Total" };
+  const RANGE_LABELS: Record<TimeRange, string> = { daily: t("range.daily"), weekly: t("range.weekly"), monthly: t("range.monthly"), total: t("range.total") };
 
   const REFRESH_OPTIONS = [
     { label: t("refresh.manual"), value: 0 },
