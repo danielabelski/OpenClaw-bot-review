@@ -13,6 +13,22 @@ const SUBAGENT_MAX_ACTIVE_MS = 10 * 60 * 1000
 const SUBAGENT_ACTIVITY_EVENT_LIMIT = 6
 const SUBAGENT_ACTIVITY_TEXT_MAX_LEN = 80
 
+function normalizeIdentityValue(rawValue: string): string | null {
+  let value = rawValue.trim()
+  if (!value) return null
+
+  const placeholder = /^[_*`~\s]*\((?:your|pick|choose|fill|todo|tbd|填写|选择|待)[^)]*\)[_*`~\s]*/iu
+  while (placeholder.test(value)) {
+    value = value.replace(placeholder, '').replace(/^[-:：,，\s]+/, '').trim()
+  }
+  if (!value) return null
+
+  const wrapped = value.match(/^([_*`])(.+)\1$/)
+  if (wrapped) value = wrapped[2].trim()
+
+  return value || null
+}
+
 type SessionsIndex = Record<string, { sessionId?: string; updatedAt?: number }>
 type CronStoreJob = {
   id: string
@@ -996,8 +1012,12 @@ export async function GET() {
               if (existsSync(identityPath)) {
                 try {
                   const identityRaw = await fs.readFile(identityPath, 'utf8')
-                  const m = identityRaw.match(/\*\*Emoji:\*\*\s*(\S+)/)
-                  if (m?.[1]) agentJsonEmoji = m[1]
+                  const emojiLine = identityRaw.split(/\r?\n/).find((line) => /\*\*Emoji:\*\*/.test(line))
+                  const m = emojiLine?.match(/\*\*Emoji:\*\*\s*(.*)$/)
+                  if (m) {
+                    const emoji = normalizeIdentityValue(m[1])
+                    if (emoji) agentJsonEmoji = emoji
+                  }
                 } catch { /* ignore */ }
               }
             }

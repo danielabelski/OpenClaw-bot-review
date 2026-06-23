@@ -264,8 +264,12 @@ function readIdentityEmoji(agentId: string, agentDir?: string, workspace?: strin
   for (const p of candidates) {
     try {
       const content = fs.readFileSync(p, "utf-8");
-      const match = content.match(/\*\*Emoji:\*\*\s*(\S+)/);
-      if (match?.[1]) return match[1].trim();
+      const emojiLine = content.split(/\r?\n/).find((line) => /\*\*Emoji:\*\*/.test(line));
+      const match = emojiLine?.match(/\*\*Emoji:\*\*\s*(.*)$/);
+      if (match) {
+        const emoji = normalizeIdentityName(match[1]);
+        if (emoji) return emoji;
+      }
     } catch {}
   }
   return null;
