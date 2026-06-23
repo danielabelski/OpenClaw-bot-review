@@ -232,6 +232,25 @@ function getChannelDirectPeerIds(
   }
   return map;
 }
+function normalizeIdentityName(rawName: string): string | null {
+  let name = rawName.trim();
+  if (!name) return null;
+
+  // Drop leading template hints such as `_(your name)_` or `_(pick something)_`.
+  const placeholder = /^[_*`~\s]*\((?:your|pick|choose|fill|todo|tbd|填写|选择|待)[^)]*\)[_*`~\s]*/iu;
+  while (placeholder.test(name)) {
+    name = name.replace(placeholder, "").replace(/^[-:：,，\s]+/, "").trim();
+  }
+  if (!name) return null;
+
+  const wrapped = name.match(/^([_*`])(.+)\1$/);
+  if (wrapped) {
+    name = wrapped[2].trim();
+  }
+
+  return name || null;
+}
+
 // 从 IDENTITY.md 读取机器人名字
 function readIdentityEmoji(agentId: string, agentDir?: string, workspace?: string): string | null {
   const candidates = [
@@ -265,10 +284,11 @@ function readIdentityName(agentId: string, agentDir?: string, workspace?: string
   for (const p of candidates) {
     try {
       const content = fs.readFileSync(p, "utf-8");
-      const match = content.match(/\*\*Name:\*\*\s*(.+)/);
+      const nameLine = content.split(/\r?\n/).find((line) => /\*\*Name:\*\*/.test(line));
+      const match = nameLine?.match(/\*\*Name:\*\*\s*(.*)$/);
       if (match) {
-        const name = match[1].trim();
-        if (name && !name.startsWith("_") && !name.startsWith("(")) return name;
+        const name = normalizeIdentityName(match[1]);
+        if (name) return name;
       }
     } catch {}
   }
